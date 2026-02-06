@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إلى ملاك | To Malak</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@700&display=swap'); /* خط أميري لللمسة الكلاسيكية */
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Tajawal', sans-serif;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .signature {
+            position: absolute;
+            bottom: 15px;
+            left: 20px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 100;
+            font-family: 'Tajawal', sans-serif;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="signature">من إعداد قيس جازي</div>
+    <canvas id="scene"></canvas>
+
+    <script>
+        const canvas = document.getElementById('scene');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- إعدادات الحالة ---
+        const state = {
+            phase: 'walking',
+            timer: 0,
+            textAlpha: 0
+        };
+
+        // --- النجوم ---
+        const stars = [];
+        const numStars = 200; // زيادة عدد النجوم
+
+        for (let i = 0; i < numStars; i++) {
+            stars.push({
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight * 0.7,
+                radius: Math.random() * 1.5,
+                alpha: Math.random(),
+                twinkleSpeed: 0.01 + Math.random() * 0.04
+            });
+        }
+
+        // --- الرجل (ظلية - Silhouette) ---
+        const man = {
+            x: -60,
+            y: 0,
+            speed: 2.5, // أسرع قليلاً
+            scale: 0.85,
+            legAngle: 0,
+            armAngle: 0
+        };
+
+        // --- النصوص (تم التعديل لملاك - مدح الجمال فقط) ---
+        const messages = {
+            title: "إلى ملاك..",
+            body: [
+                "يُقال أن للجمال أسياداً وأسماء..",
+                "ولكن حضوركِ طغى على كل الأوصاف.",
+                "سبحان من سوّاكِ في أبهى صورة..",
+                "ملاكٌ... اسماً وقالباً."
+            ]
+        };
+
+        let typedText = "";
+        let typeIndex = 0;
+        let lineIndex = 0;
+        let lastTypeTime = 0;
+
+        // --- حلقة الرسم ---
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. الخلفية (تدرج لوني يميل للبنفسجي الغامق ليعطي طابع الجمال والغموض)
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, '#0f0c29'); 
+            gradient.addColorStop(0.5, '#302b63'); 
+            gradient.addColorStop(1, '#24243e'); 
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+
+            // 2. القمر
+            drawMoon();
+
+            // 3. النجوم والشهب
+            drawStars();
+
+            // 4. الأرضية
+            const groundY = height * 0.85;
+            man.y = groundY + 5;
+
+            ctx.fillStyle = '#050510';
+            ctx.beginPath();
+            ctx.moveTo(0, height);
+            ctx.lineTo(0, groundY);
+            // منحنى بسيط للأرض
+            ctx.bezierCurveTo(width/2, groundY - 30, width, groundY, width, groundY + 40);
+            ctx.lineTo(width, height);
+            ctx.fill();
+
+            // 5. التحديث والرسم
+            updateMan();
+            drawMan(man.x, man.y, man.scale, state.phase === 'walking');
+
+            if (state.phase === 'talking') {
+                drawText();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // --- الدوال المساعدة ---
+
+        function drawMoon() {
+            const moonX = width * 0.8; 
+            const moonY = height * 0.15;
+            const r = 50;
+
+            // هالة القمر
+            ctx.shadowBlur = 60;
+            ctx.shadowColor = "rgba(255, 255, 255, 0.9)";
+            
+            ctx.beginPath();
+            ctx.arc(moonX, moonY, r, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            
+            ctx.shadowBlur = 0;
+        }
+
+        function drawStars() {
+            ctx.fillStyle = 'white';
+            stars.forEach(star => {
+                star.alpha += star.twinkleSpeed;
+                if (star.alpha > 1 || star.alpha < 0.2) star.twinkleSpeed *= -1;
+                ctx.globalAlpha = Math.abs(star.alpha);
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        function updateMan() {
+            if (state.phase === 'walking') {
+                man.x += man.speed;
+                man.legAngle = Math.sin(Date.now() / 120) * 0.8;
+                man.armAngle = Math.sin(Date.now() / 120) * 0.8;
+
+                // التوقف في المنتصف
+                if (man.x >= width / 2 - 20) {
+                    state.phase = 'standing';
+                    man.legAngle = 0;
+                    man.armAngle = 0;
+                }
+            } else if (state.phase === 'standing') {
+                state.timer++;
+                if (state.timer > 50) {
+                    state.phase = 'talking';
+                }
+            }
+        }
+
+        function drawMan(x, y, s, isWalking) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(s, s);
+            ctx.strokeStyle = '#000'; // أسود حالك
+            ctx.fillStyle = '#000';
+            ctx.lineWidth = 9;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // أرجل
+            ctx.beginPath();
+            ctx.moveTo(0, -60);
+            if(isWalking) {
+                ctx.lineTo(Math.sin(man.legAngle)*25, -30);
+                ctx.lineTo(Math.sin(man.legAngle)*35, 0); 
+            } else {
+                ctx.lineTo(-5, 0); // وقفة ثابتة
+            }
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(0, -60);
+            if(isWalking) {
+                ctx.lineTo(Math.sin(-man.legAngle)*25, -30);
+                ctx.lineTo(Math.sin(-man.legAngle)*35, 0);
+            } else {
+                ctx.lineTo(5, 0);
+            }
+            ctx.stroke();
+
+            // جسم
+            ctx.beginPath();
+            ctx.moveTo(0, -60);
+            ctx.lineTo(0, -115); // ظهر مستقيم
+            ctx.stroke();
+
+            // أذرع
+            ctx.beginPath();
+            ctx.moveTo(0, -105);
+            if(isWalking) {
+                ctx.lineTo(Math.sin(-man.armAngle)*20, -75);
+            } else {
+                // رفع اليد قليلاً كأنه يشير للقمر أو يتعجب
+                ctx.lineTo(15, -85); 
+            }
+            ctx.stroke();
+
+            // رأس
+            ctx.beginPath();
+            ctx.arc(2, -130, 13, 0, Math.PI * 2); // الرأس مرفوع للأعلى
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawText() {
+            const centerX = width / 2;
+            const centerY = height * 0.4;
+
+            ctx.textAlign = "center";
+            ctx.fillStyle = "#fff";
+
+            // العنوان (اسم ملاك) بخط عريض وكبير
+            ctx.font = "bold 50px 'Amiri', serif"; 
+            if(state.textAlpha < 1) state.textAlpha += 0.015;
+            ctx.globalAlpha = state.textAlpha;
+            
+            // ظل للنص ليبرز فوق الخلفية
+            ctx.shadowColor = "rgba(0,0,0,0.8)";
+            ctx.shadowBlur = 10;
+            ctx.fillText(messages.title, centerX, centerY);
+            ctx.shadowBlur = 0;
+
+            // النصوص المتتابعة
+            ctx.font = "300 28px 'Tajawal'";
+            
+            if(state.textAlpha >= 0.9) {
+                if(Date.now() - lastTypeTime > 60 && lineIndex < messages.body.length) {
+                    let currentLine = messages.body[lineIndex];
+                    if(typeIndex < currentLine.length) {
+                        typedText += currentLine[typeIndex];
+                        typeIndex++;
+                        lastTypeTime = Date.now();
+                    } else {
+                        if(Date.now() - lastTypeTime > 2000) { 
+                             typedText = "";
+                             typeIndex = 0;
+                             lineIndex++;
+                             if(lineIndex >= messages.body.length) {
+                                 // تثبيت الجملة الأخيرة
+                                 lineIndex = messages.body.length - 1;
+                                 typedText = messages.body[lineIndex];
+                             }
+                        }
+                    }
+                }
+                
+                ctx.fillStyle = "#e0e0e0";
+                ctx.shadowColor = "black";
+                ctx.shadowBlur = 4;
+                ctx.fillText(typedText, centerX, centerY + 70);
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        animate();
+    </script>
+</body>
+</html>
+
